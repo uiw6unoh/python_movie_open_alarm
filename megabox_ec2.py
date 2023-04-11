@@ -1,6 +1,7 @@
 import time
 import asyncio
 import telegram
+import logging
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 from selenium import webdriver
@@ -20,6 +21,10 @@ target_date = "2023.04.23"
 # 이전에 확인한 예매 오픈 정보
 prev_booking_info = None
 
+# 로그 설정
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s %(levelname)s %(message)s')
+
 
 def init_webdriver():
     chrome_options = Options()
@@ -31,8 +36,7 @@ def init_webdriver():
     user_agent = ua.random
     chrome_options.add_argument(f'user-agent={user_agent}')
 
-    chromedriver_path = 'D:/Project/python_movie_open_alarm/chromedriver.exe'
-    # chromedriver_path = '/home/ubuntu/chromedriver'
+    chromedriver_path = '/home/ubuntu/chromedriver'
     driver = webdriver.Chrome(executable_path=chromedriver_path, options=chrome_options)
     return driver
 
@@ -58,19 +62,24 @@ async def check_booking_info():
     try:
         driver.get(url)
     except Exception as e:
-        print(f"Error occurred: {e}")
+        logging.error(f"Error occurred: {e}")
         driver.quit()
         return
 
     soup = BeautifulSoup(driver.page_source, "html.parser")
     movie_list = soup.select(".reserve.theater-list-box > .theater-list")
     if not movie_list:
-        print("No movie found on the page.")
+        logging.info("No movie found on the page.")
         driver.quit()
         return
 
     # 페이지에서 예매 날짜 버튼 클릭
-    booking_date_button = driver.find_element_by_css_selector(f".date-area button[date-data='{target_date}']")
+    try:
+        booking_date_button = driver.find_element_by_css_selector(f"button[data-date='{target_date}']")
+    except:
+        logging.error(f"Unable to locate element: button[data-date='{target_date}']")
+        driver.quit()
+        return
     click_booking_date_button(driver, booking_date_button)
 
     # 예매 가능한 영화 검색
@@ -84,14 +93,14 @@ async def check_booking_info():
             booking_info = f"{target_date}일자 [{movie_title}] 예매 오픈!"
             bot = telegram.Bot(token=bot_token)
             await bot.send_message(chat_id=chat_id, text=booking_info)
-            print(f"{booking_info}\n텔레그램으로 전송했습니다!")
+            logging.info(f"{booking_info}\n텔레그램으로 전송했습니다!")
             is_movie_found = True
 
     if not is_movie_found:
         not_found_info = f"{target_date}일자 [{target_title}] 예매 오픈 정보가 없습니다."
         bot = telegram.Bot(token=bot_token)
         await bot.send_message(chat_id=chat_id, text=not_found_info)
-        print(f"{not_found_info}\n텔레그램으로 전송했습니다!")
+        logging.info(f"{not_found_info}\n텔레그램으로 전송했습니다!")
 
     driver.quit()
 
@@ -99,7 +108,7 @@ async def check_booking_info():
 async def main():
     while True:
         await check_booking_info()
-        await asyncio.sleep(20)
+        await asyncio.sleep(10)
 
 
 if __name__ == '__main__':
