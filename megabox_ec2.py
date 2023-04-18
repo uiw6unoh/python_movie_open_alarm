@@ -5,6 +5,7 @@ import logging
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -46,7 +47,7 @@ def click_booking_date_button(driver, booking_date_button):
     booking_date_button.click()
 
     # 페이지 로드 대기
-    wait = WebDriverWait(driver, 5)
+    wait = WebDriverWait(driver, 10)
     wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.time-schedule')))
 
     # 일정한 대기 시간 추가
@@ -75,9 +76,13 @@ async def check_booking_info():
 
     # 페이지에서 예매 날짜 버튼 클릭
     try:
-        booking_date_button = driver.find_element_by_css_selector(f"button[data-date='{target_date}']")
-    except:
-        logging.error(f"Unable to locate element: button[data-date='{target_date}']")
+        booking_date_button = driver.find_element(By.CSS_SELECTOR, f".date-area button[date-data='{target_date}']")
+    except NoSuchElementException:
+        logging.error(f"Unable to locate element: button[date-data='{target_date}']")
+        driver.quit()
+        return
+    except Exception as e:
+        logging.error(f"Unexpected error occurred: {e}")
         driver.quit()
         return
     click_booking_date_button(driver, booking_date_button)
@@ -98,9 +103,7 @@ async def check_booking_info():
 
     if not is_movie_found:
         not_found_info = f"{target_date}일자 [{target_title}] 예매 오픈 정보가 없습니다."
-        bot = telegram.Bot(token=bot_token)
-        await bot.send_message(chat_id=chat_id, text=not_found_info)
-        logging.info(f"{not_found_info}\n텔레그램으로 전송했습니다!")
+        logging.info(f"{not_found_info}")
 
     driver.quit()
 
@@ -112,7 +115,7 @@ async def main():
 
 
 if __name__ == '__main__':
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
     loop.create_task(main())
 
     try:

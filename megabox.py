@@ -89,9 +89,7 @@ async def check_booking_info():
 
     if not is_movie_found:
         not_found_info = f"{target_date}일자 [{target_title}] 예매 오픈 정보가 없습니다."
-        bot = telegram.Bot(token=bot_token)
-        await bot.send_message(chat_id=chat_id, text=not_found_info)
-        print(f"{not_found_info}\n텔레그램으로 전송했습니다!")
+        print(f"{not_found_info}")
 
     driver.quit()
 
